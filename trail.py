@@ -21,7 +21,7 @@ app.config['UPLOAD_FOLDER'] = 'uploads'
 # --------------------------
 # Image Classification Setup
 # --------------------------
-model = load_model(r'C:\Users\SRIKANTH\Desktop\sensitive_image_detection\model_training\sensitive_model_final.keras')
+model = load_model(r'C:\Users\SRIKANTH\Desktop\sensitive_image_detection\sensitive_model_final.keras')
 
 # --------------------------
 # OCR Setup

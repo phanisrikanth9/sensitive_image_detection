@@ -1,0 +1,586 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Advanced Visual Privacy Risk Detection</title>
+  <!-- Google Fonts -->
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    /* CSS Variables for theming */
+    :root {
+      --primary: #007BFF;
+      --secondary: #00D4FF;
+      --background: #f1f1f5;
+      --text: #333;
+      --card-bg: rgba(255, 255, 255, 0.9);
+      --border: rgba(0, 0, 0, 0.1);
+      --glass-bg: rgba(255, 255, 255, 0.5);
+      --glass-border: rgba(255, 255, 255, 0.6);
+    }
+    [data-theme="dark"] {
+      --primary: #007BFF;
+      --secondary: #00D4FF;
+      --background: #1a1a2e;
+      --text: #f1f1f1;
+      --card-bg: rgba(26, 26, 46, 0.95);
+      --border: rgba(255, 255, 255, 0.2);
+      --glass-bg: rgba(26, 26, 46, 0.5);
+      --glass-border: rgba(255, 255, 255, 0.2);
+    }
+    
+    /* Global Styles */
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+      transition: all 0.3s ease;
+    }
+    html, body {
+      width: 100%;
+      overflow-x: hidden;
+    }
+    body {
+      font-family: 'Poppins', sans-serif;
+      background: var(--background);
+      color: var(--text);
+      display: flex;
+      flex-direction: column;
+      min-height: 100vh;
+    }
+    a {
+      color: var(--secondary);
+      text-decoration: none;
+    }
+    
+    /* Theme Toggle Button */
+    .theme-toggle {
+      position: fixed;
+      top: 20px;
+      right: 20px;
+      background: var(--glass-bg);
+      backdrop-filter: blur(10px);
+      border: 1px solid var(--glass-border);
+      border-radius: 50%;
+      width: 40px;
+      height: 40px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      z-index: 1000;
+      font-size: 1.2rem;
+    }
+    
+    /* Header */
+    header {
+      text-align: center;
+      padding: 40px 20px 20px;
+    }
+    .logo {
+      font-size: 3rem;
+      font-weight: 700;
+      color: var(--primary);
+      margin-bottom: 10px;
+      animation: bounce 1.5s infinite alternate;
+    }
+    @keyframes bounce {
+      from { transform: translateY(0); }
+      to { transform: translateY(-10px); }
+    }
+    h1 {
+      font-size: 2.5rem;
+      margin-bottom: 10px;
+    }
+    .description {
+      font-size: 1.1rem;
+      max-width: 600px;
+      margin: 0 auto;
+      line-height: 1.6;
+      color: var(--text);
+    }
+    
+    /* Upload Container */
+    .upload-container {
+      background: var(--glass-bg);
+      backdrop-filter: blur(20px);
+      border: 1px solid var(--glass-border);
+      border-radius: 20px;
+      margin: 20px auto;
+      padding: 30px;
+      width: 90%;
+      max-width: 600px;
+      position: relative;
+      overflow: hidden;
+      box-shadow: 0 8px 20px rgba(0, 0, 0, 0.1);
+    }
+    .upload-container::before {
+      content: '';
+      position: absolute;
+      top: -50%;
+      left: -50%;
+      width: 200%;
+      height: 200%;
+      background: linear-gradient(45deg, transparent, var(--primary), transparent);
+      animation: rotate 6s linear infinite;
+      opacity: 0.2;
+    }
+    @keyframes rotate {
+      from { transform: rotate(0deg); }
+      to { transform: rotate(360deg); }
+    }
+    .upload-container form {
+      position: relative;
+      z-index: 1;
+    }
+    input[type="file"] {
+      display: block;
+      margin: 20px auto;
+    }
+    button.upload-button {
+      background: linear-gradient(to right, var(--primary), var(--secondary));
+      border: none;
+      color: #fff;
+      padding: 15px 30px;
+      font-size: 1rem;
+      border-radius: 30px;
+      cursor: pointer;
+      margin-top: 10px;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    }
+    button.upload-button:hover {
+      transform: scale(1.05);
+    }
+    
+    /* Progress Bar */
+    .progress-bar-container {
+      width: 100%;
+      background: #e0e0e0;
+      border-radius: 10px;
+      overflow: hidden;
+      margin-top: 20px;
+      /* Always visible during processing */
+      display: block;
+    }
+    .progress-bar {
+      height: 20px;
+      width: 0%;
+      background: linear-gradient(to right, var(--primary), var(--secondary));
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: #fff;
+      font-weight: bold;
+      border-radius: 10px;
+      text-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
+      transition: width 0.5s ease;
+    }
+    .loading {
+      text-align: center;
+      margin-top: 20px;
+      font-size: 1.1rem;
+      color: var(--text);
+      display: none;
+      animation: pulse 1s infinite;
+    }
+    @keyframes pulse {
+      0% { opacity: 0.6; }
+      100% { opacity: 1; }
+    }
+    
+    /* Results Section */
+    .sensitive-trigger {
+      background: #ffebee;
+      border-left: 4px solid #c62828;
+      padding: 8px;
+      margin: 10px 0;
+      border-radius: 4px;
+    }
+    .sensitive-trigger mark {
+      background: #ffcdd2;
+      padding: 2px 4px;
+      border-radius: 3px;
+      display: inline-block;
+      margin-top: 5px;
+    }
+    .results-summary {
+      text-align: center;
+      font-size: 1.2rem;
+      margin: 20px 0;
+      font-weight: 600;
+    }
+    /* Download, Toggle & Settings Buttons */
+    #toggleDetails, #downloadResults, #settingsButton {
+      background: linear-gradient(to right, var(--primary), var(--secondary));
+      border: none;
+      color: #fff;
+      padding: 10px 20px;
+      border-radius: 25px;
+      cursor: pointer;
+      margin: 10px auto;
+      display: block;
+      transition: transform 0.3s;
+    }
+    #toggleDetails:hover, #downloadResults:hover, #settingsButton:hover {
+      transform: scale(1.05);
+    }
+    .results-container {
+      display: none;
+      margin: 20px auto;
+      width: 90%;
+      max-width: 1200px;
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+      gap: 20px;
+      padding: 0 10px;
+    }
+    .result-card {
+      background: var(--card-bg);
+      border-radius: 15px;
+      padding: 20px;
+      box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
+      transition: transform 0.3s, box-shadow 0.3s;
+    }
+    .result-card:hover {
+      transform: translateY(-5px);
+      box-shadow: 0 8px 20px rgba(0, 0, 0, 0.2);
+    }
+    .result-card img {
+      width: 100%;
+      border-radius: 10px;
+      margin-bottom: 10px;
+    }
+    .result-card h3 {
+      margin-bottom: 10px;
+      font-size: 1.2rem;
+    }
+    .result-card p {
+      margin-bottom: 5px;
+      font-size: 0.95rem;
+      line-height: 1.4;
+    }
+    
+    /* Footer */
+    .footer {
+      margin-top: auto;
+      text-align: center;
+      background: linear-gradient(to right, #333, #555);
+      color: #fff;
+      padding: 15px;
+      font-size: 0.9rem;
+      font-weight: bold;
+    }
+    .footer a {
+      color: var(--secondary);
+    }
+    
+    /* Settings Modal */
+    #settingsModal {
+      display: none;
+      position: fixed;
+      z-index: 2000;
+      left: 0;
+      top: 0;
+      width: 100%;
+      height: 100%;
+      overflow: auto;
+      background-color: rgba(0,0,0,0.5);
+      animation: fadeIn 0.3s;
+    }
+    #settingsModal .modal-content {
+      background: var(--card-bg);
+      margin: 10% auto;
+      padding: 20px;
+      border: 1px solid var(--glass-border);
+      border-radius: 15px;
+      width: 90%;
+      max-width: 400px;
+      position: relative;
+      animation: slideDown 0.3s;
+    }
+    #settingsModal .close-modal {
+      position: absolute;
+      top: 10px;
+      right: 15px;
+      font-size: 1.5rem;
+      cursor: pointer;
+    }
+    #settingsModal label {
+      display: block;
+      margin-bottom: 8px;
+      font-weight: 500;
+    }
+    #settingsModal select {
+      width: 100%;
+      padding: 8px;
+      margin-bottom: 15px;
+      border: 1px solid var(--border);
+      border-radius: 5px;
+      font-size: 1rem;
+    }
+    @keyframes slideDown {
+      from { transform: translateY(-20px); opacity: 0; }
+      to { transform: translateY(0); opacity: 1; }
+    }
+    @keyframes fadeIn {
+      from { opacity: 0; }
+      to { opacity: 1; }
+    }
+    
+    /* Responsive */
+    @media (max-width: 768px) {
+      h1 { font-size: 2rem; }
+      .description { font-size: 1rem; }
+    }
+  </style>
+</head>
+<body>
+  <!-- Theme Toggle -->
+  <button class="theme-toggle" onclick="toggleTheme()">🌓</button>
+  
+  <!-- Header -->
+  <header>
+    <div class="logo">🔒 Privacy Risk Detector</div>
+    <h1>Visual Privacy Risk Detection</h1>
+    <p class="description">
+      Analyze uploaded images to detect privacy risks. Classify images as sensitive or non-sensitive, and extract any embedded text for further evaluation.
+    </p>
+  </header>
+  
+  <!-- Upload Section -->
+  <section class="upload-container">
+    <form id="uploadForm" enctype="multipart/form-data">
+      <input type="file" name="files" accept="image/*" multiple required>
+      <button type="submit" class="upload-button">Upload Images</button>
+    </form>
+    <div class="progress-bar-container">
+      <div class="progress-bar" id="progressBar">0/0 (0%)</div>
+    </div>
+    <p class="loading">Processing images, please wait...</p>
+  </section>
+  
+  <!-- Results Section -->
+  <p class="results-summary" id="resultsSummary"></p>
+  <button id="toggleDetails">Show Details</button>
+  <button id="downloadResults">Download Results</button>
+  <button id="settingsButton">Settings</button>
+  <section class="results-container" id="resultsContainer"></section>
+  
+  <!-- Footer -->
+  <footer class="footer">
+    Designed by <a href="#">Phani Srikanth Samayam</a> &copy; 2024. All rights reserved.
+  </footer>
+  
+  <!-- Settings Modal -->
+  <div id="settingsModal">
+    <div class="modal-content">
+      <span class="close-modal" id="closeSettings">&times;</span>
+      <h2>Settings</h2>
+      <label for="downloadFormat">Download Format:</label>
+      <select id="downloadFormat">
+        <option value="plain">Plain Text</option>
+        <option value="csv">CSV</option>
+        <option value="json">JSON</option>
+      </select>
+      <!-- Additional settings can be added here -->
+    </div>
+  </div>
+  
+  <script>
+    // Global variables to store fetched results and selected download format
+    let fetchedResults = [];
+    let selectedDownloadFormat = 'plain';
+    
+    // Theme Management
+    function toggleTheme() {
+      const body = document.body;
+      const currentTheme = body.getAttribute('data-theme');
+      const newTheme = currentTheme === 'dark' ? 'light' : 'dark';
+      body.setAttribute('data-theme', newTheme);
+      localStorage.setItem('theme', newTheme);
+    }
+    // Set initial theme
+    const savedTheme = localStorage.getItem('theme') || 'light';
+    document.body.setAttribute('data-theme', savedTheme);
+    
+    // Settings Modal Functionality
+    const settingsButton = document.getElementById('settingsButton');
+    const settingsModal = document.getElementById('settingsModal');
+    const closeSettings = document.getElementById('closeSettings');
+    const downloadFormatSelect = document.getElementById('downloadFormat');
+    
+    settingsButton.addEventListener('click', function() {
+      settingsModal.style.display = 'block';
+    });
+    closeSettings.addEventListener('click', function() {
+      settingsModal.style.display = 'none';
+    });
+    window.addEventListener('click', function(e) {
+      if (e.target == settingsModal) {
+        settingsModal.style.display = 'none';
+      }
+    });
+    downloadFormatSelect.addEventListener('change', function() {
+      selectedDownloadFormat = this.value;
+    });
+    
+    // File Upload, Progress, and Results
+    document.getElementById('uploadForm').addEventListener('submit', async function(e) {
+      e.preventDefault();
+      
+      // Capture the file list immediately for preview references
+      const filesArray = Array.from(this.querySelector('input[type="file"]').files);
+      const formData = new FormData(this);
+      const resultsContainer = document.getElementById('resultsContainer');
+      const resultsSummary = document.getElementById('resultsSummary');
+      const toggleDetailsButton = document.getElementById('toggleDetails');
+      const downloadResultsButton = document.getElementById('downloadResults');
+      const loadingMessage = document.querySelector('.loading');
+      const progressBar = document.getElementById('progressBar');
+      
+      // Reset UI elements
+      resultsContainer.innerHTML = '';
+      resultsSummary.textContent = '';
+      toggleDetailsButton.style.display = 'none';
+      downloadResultsButton.style.display = 'none';
+      // Reset progress bar and ensure it is visible during processing
+      progressBar.style.width = '0%';
+      progressBar.textContent = `0/${filesArray.length} (0%)`;
+      loadingMessage.style.display = 'block';
+      
+      try {
+        const response = await fetch('/upload', { method: 'POST', body: formData });
+        if (!response.ok) {
+          throw new Error(`Server returned ${response.status}: ${response.statusText}`);
+        }
+        const results = await response.json();
+        // Store results globally for download functionality
+        fetchedResults = results;
+        const totalImages = results.length;
+        let sensitiveCount = 0, nonSensitiveCount = 0;
+        
+        for (let i = 0; i < totalImages; i++) {
+          const result = results[i];
+          if (result.sensitive) sensitiveCount++;
+          else nonSensitiveCount++;
+          
+          // Update progress bar to show count and percentage
+          const progress = ((i + 1) / totalImages) * 100;
+          progressBar.style.width = progress + '%';
+          progressBar.textContent = `${i+1}/${totalImages} (${Math.round(progress)}%)`;
+          
+          // Create result card
+          const card = document.createElement('div');
+          card.className = 'result-card';
+          
+          let imagePreview = '';
+          const file = filesArray[i];
+          if (file) {
+            imagePreview = `<img src="${URL.createObjectURL(file)}" alt="Preview">`;
+          }
+          
+          // If trigger_text is not provided, fallback to first 100 chars of extracted_text (if available)
+          const triggerText = result.text_sensitive 
+            ? (result.trigger_text && result.trigger_text.trim() !== "" 
+               ? result.trigger_text 
+               : (result.extracted_text ? result.extracted_text.substring(0, 100) + "..." : "N/A"))
+            : "";
+          const triggerInfo = result.text_sensitive
+            ? `<p><strong>Sensitive Trigger:</strong> ${triggerText}</p>`
+            : '';
+          
+          card.innerHTML = `
+            ${imagePreview}
+            <h3>File: ${result.filename}</h3>
+            <p><strong>Sensitivity:</strong> ${result.sensitive ? 'Sensitive' : 'Non-Sensitive'}</p>
+            <p><strong>Image Classification:</strong> ${result.image_classification}</p>
+            <p><strong>Text Sensitivity:</strong> ${result.text_sensitive ? 'Sensitive' : 'Non-Sensitive'}</p>
+            <p><strong>Extracted Text:</strong> ${result.extracted_text || 'No text found'}</p>
+            ${triggerInfo}
+          `;
+          resultsContainer.appendChild(card);
+        }
+        
+        resultsSummary.textContent = `Sensitive Images: ${sensitiveCount}, Non-Sensitive Images: ${nonSensitiveCount}`;
+        toggleDetailsButton.style.display = 'block';
+        downloadResultsButton.style.display = 'block';
+        loadingMessage.style.display = 'none';
+        resultsContainer.style.display = 'grid';
+        
+        // Update progress bar to final state (optional)
+        progressBar.textContent = `Completed: ${totalImages}/${totalImages} (100%)`;
+      } catch (error) {
+        alert('Error processing images. Please try again later.');
+        console.error(error);
+      }
+      // Do not hide the progress bar, so users can see the final count.
+    });
+    
+    // Toggle detailed results display
+    document.getElementById('toggleDetails').addEventListener('click', function() {
+      const resultsContainer = document.getElementById('resultsContainer');
+      if (resultsContainer.style.display === 'none' || resultsContainer.style.display === '') {
+        resultsContainer.style.display = 'grid';
+        this.textContent = 'Hide Details';
+      } else {
+        resultsContainer.style.display = 'none';
+        this.textContent = 'Show Details';
+      }
+    });
+    
+    // Download Results in the Selected Format
+    document.getElementById('downloadResults').addEventListener('click', function() {
+      if (!fetchedResults.length) return;
+      let dataStr = "";
+      if (selectedDownloadFormat === "plain") {
+        fetchedResults.forEach((result, index) => {
+          dataStr += `Result ${index + 1}\n`;
+          dataStr += `Filename: ${result.filename}\n`;
+          dataStr += `Sensitivity: ${result.sensitive ? 'Sensitive' : 'Non-Sensitive'}\n`;
+          dataStr += `Image Classification: ${result.image_classification}\n`;
+          dataStr += `Text Sensitivity: ${result.text_sensitive ? 'Sensitive' : 'Non-Sensitive'}\n`;
+          dataStr += `Extracted Text: ${result.extracted_text || 'No text found'}\n`;
+          if(result.text_sensitive) {
+            const triggerText = result.trigger_text && result.trigger_text.trim() !== "" 
+                                  ? result.trigger_text 
+                                  : (result.extracted_text ? result.extracted_text.substring(0, 100) + "..." : "N/A");
+            dataStr += `Sensitive Trigger: ${triggerText}\n`;
+          }
+          dataStr += `\n`;
+        });
+      } else if (selectedDownloadFormat === "csv") {
+        // CSV header (added Sensitive Trigger column)
+        dataStr += "Filename,Sensitivity,Image Classification,Text Sensitivity,Extracted Text,Sensitive Trigger\n";
+        fetchedResults.forEach(result => {
+          const filename = `"${result.filename.replace(/"/g, '""')}"`;
+          const sensitivity = result.sensitive ? "Sensitive" : "Non-Sensitive";
+          const classification = `"${result.image_classification.replace(/"/g, '""')}"`;
+          const textSensitivity = result.text_sensitive ? "Sensitive" : "Non-Sensitive";
+          const extractedText = `"${(result.extracted_text || 'No text found').replace(/"/g, '""')}"`;
+          const sensitiveTrigger = result.text_sensitive
+            ? (result.trigger_text && result.trigger_text.trim() !== ""
+                ? `"${result.trigger_text.replace(/"/g, '""')}"`
+                : `"${(result.extracted_text ? result.extracted_text.substring(0, 100) + "..." : "N/A").replace(/"/g, '""')}"`)
+            : 'N/A';
+          dataStr += `${filename},${sensitivity},${classification},${textSensitivity},${extractedText},${sensitiveTrigger}\n`;
+        });
+      } else if (selectedDownloadFormat === "json") {
+        dataStr = JSON.stringify(fetchedResults, null, 2);
+      }
+      
+      const mimeType = selectedDownloadFormat === "csv" ? "text/csv" :
+                       selectedDownloadFormat === "json" ? "application/json" : "text/plain";
+      
+      const blob = new Blob([dataStr], { type: mimeType });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `results.${selectedDownloadFormat === "csv" ? "csv" : selectedDownloadFormat === "json" ? "json" : "txt"}`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    });
+  </script>
+</body>
+</html>

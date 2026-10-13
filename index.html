@@ -1,0 +1,289 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Visual Privacy Risk Detector</title>
+<meta name="description" content="Check images for card numbers, Aadhaar, PAN, SSN, phone numbers and passwords before you share them. Runs in your browser.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@75..100,500..800&family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
+<style>
+/* Layout: a document desk. Single column on phones, upload + samples side by side on desktop,
+   results as full-width "case files" with the redacted image on the left. Motif: redaction bars. */
+:root {
+  --paper: #f3f4f1;
+  --surface: #ffffff;
+  --sunken: #ebede8;
+  --ink: #16181b;
+  --muted: #5a6067;
+  --line: #d9dcd5;
+  --accent: #2b45b5;
+  --accent-soft: rgba(43, 69, 181, 0.09);
+  --high: #c22f2f;
+  --high-soft: rgba(194, 47, 47, 0.1);
+  --med: #a86c12;
+  --med-soft: rgba(168, 108, 18, 0.12);
+  --low: #2c7a4b;
+  --low-soft: rgba(44, 122, 75, 0.1);
+  --font-display: "Archivo", "Arial Narrow", "Helvetica Neue", Arial, sans-serif;
+  --font-body: "IBM Plex Sans", "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
+  --radius: 10px;
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --paper: #111315; --surface: #191c1f; --sunken: #15181a; --ink: #eceeea; --muted: #a1a7ad;
+    --line: #2d3236; --accent: #8fa3ff; --accent-soft: rgba(143, 163, 255, 0.12);
+    --high: #ff6f6f; --high-soft: rgba(255, 111, 111, 0.13); --med: #f0b24a; --med-soft: rgba(240, 178, 74, 0.13);
+    --low: #5ec78b; --low-soft: rgba(94, 199, 139, 0.12); color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --paper: #111315; --surface: #191c1f; --sunken: #15181a; --ink: #eceeea; --muted: #a1a7ad;
+  --line: #2d3236; --accent: #8fa3ff; --accent-soft: rgba(143, 163, 255, 0.12);
+  --high: #ff6f6f; --high-soft: rgba(255, 111, 111, 0.13); --med: #f0b24a; --med-soft: rgba(240, 178, 74, 0.13);
+  --low: #5ec78b; --low-soft: rgba(94, 199, 139, 0.12); color-scheme: dark;
+}
+
+* { box-sizing: border-box; }
+html { -webkit-text-size-adjust: 100%; }
+body {
+  margin: 0; background: var(--paper); color: var(--ink);
+  font: 15px/1.55 var(--font-body);
+  padding: env(safe-area-inset-top, 0px) 0 env(safe-area-inset-bottom, 0px);
+}
+[hidden] { display: none !important; }
+img { max-width: 100%; display: block; }
+a { color: var(--accent); }
+button, input { font: inherit; color: inherit; }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.wrap { max-width: 1120px; margin: 0 auto; padding-inline: 20px; }
+
+/* ---------- header ---------- */
+header.top { border-bottom: 1px solid var(--line); background: var(--surface); }
+.top .wrap { display: flex; align-items: center; gap: 16px; padding-block: 14px; flex-wrap: wrap; }
+.brand { display: flex; align-items: center; gap: 12px; margin-right: auto; text-decoration: none; color: var(--ink); }
+.mark { width: 34px; height: 34px; border-radius: 7px; border: 1.5px solid var(--ink); display: grid; align-content: center; gap: 4px; padding: 0 6px; }
+.mark i { display: block; height: 4px; background: var(--ink); border-radius: 1px; }
+.mark i:nth-child(1) { width: 100%; } .mark i:nth-child(2) { width: 60%; } .mark i:nth-child(3) { width: 80%; }
+.brand b { font-family: var(--font-display); font-stretch: 85%; font-weight: 700; font-size: 17px; letter-spacing: -0.01em; }
+.mode { display: inline-flex; align-items: center; gap: 8px; font-size: 13px; color: var(--muted); padding: 5px 10px; border: 1px solid var(--line); border-radius: 999px; }
+.mode .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--low); }
+.icon-btn { background: none; border: 1px solid var(--line); border-radius: 8px; width: 36px; height: 36px; cursor: pointer; display: grid; place-items: center; }
+.icon-btn:hover { border-color: var(--muted); }
+.icon-btn svg { width: 18px; height: 18px; }
+
+/* ---------- intro ---------- */
+.intro { padding-block: 40px 24px; display: grid; gap: 12px; }
+.intro h1 {
+  font-family: var(--font-display); font-stretch: 80%; font-weight: 800; letter-spacing: -0.02em;
+  font-size: clamp(32px, 5.4vw, 56px); line-height: 1.02; margin: 0; max-width: 18ch; text-wrap: balance;
+}
+.intro h1 .redact { background: var(--ink); color: transparent; border-radius: 3px; padding: 0 0.12em; box-decoration-break: clone; -webkit-box-decoration-break: clone; transition: color .25s, background-color .25s; cursor: default; }
+.intro h1 .redact:hover { background: var(--accent-soft); color: var(--ink); }
+.intro p { margin: 0; max-width: 62ch; color: var(--muted); font-size: 16px; }
+
+/* ---------- input row ---------- */
+.input-row { display: grid; grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr); gap: 20px; padding-bottom: 24px; }
+@media (max-width: 820px) { .input-row { grid-template-columns: minmax(0, 1fr); } }
+.drop {
+  position: relative; border: 1.5px dashed var(--muted); border-radius: var(--radius); background: var(--surface);
+  min-height: 230px; display: grid; place-items: center; text-align: center; padding: 28px 20px; cursor: pointer;
+  transition: border-color .15s, background-color .15s;
+}
+.drop:hover, .drop.over { border-color: var(--accent); background: var(--accent-soft); }
+.drop h2 { font-family: var(--font-display); font-stretch: 90%; font-weight: 700; font-size: 22px; margin: 10px 0 4px; }
+.drop p { margin: 0; color: var(--muted); font-size: 14px; }
+.drop .pick { display: inline-block; margin-top: 16px; background: var(--ink); color: var(--paper); border-radius: 8px; padding: 9px 16px; font-weight: 600; font-size: 14px; }
+.drop input { position: absolute; inset: 0; opacity: 0; cursor: pointer; }
+.drop svg { width: 40px; height: 40px; color: var(--muted); }
+
+.samples { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); padding: 18px; display: grid; gap: 12px; align-content: start; }
+.eyebrow { font-size: 12px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); margin: 0; }
+.sample-list { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
+.sample { border: 1px solid var(--line); border-radius: 8px; background: var(--sunken); padding: 6px; cursor: pointer; text-align: left; display: grid; gap: 6px; transition: border-color .15s, transform .15s; }
+.sample:hover { border-color: var(--accent); transform: translateY(-1px); }
+.sample canvas, .sample img { width: 100%; aspect-ratio: 4 / 3; object-fit: cover; border-radius: 5px; background: #fff; }
+.sample span { font-size: 13px; font-weight: 500; padding: 0 2px 2px; }
+.samples small { color: var(--muted); font-size: 12.5px; }
+
+/* ---------- status ---------- */
+.status { display: flex; align-items: center; gap: 14px; padding: 12px 16px; border: 1px solid var(--line); border-radius: var(--radius); background: var(--surface); margin-bottom: 20px; }
+.status .msg { font-size: 14px; flex: 1; min-width: 0; }
+.status .bar { flex: 0 0 160px; height: 6px; background: var(--sunken); border-radius: 99px; overflow: hidden; }
+.status .bar i { display: block; height: 100%; width: 0; background: var(--accent); transition: width .2s; }
+.spinner { width: 16px; height: 16px; border: 2px solid var(--line); border-top-color: var(--accent); border-radius: 50%; animation: spin .8s linear infinite; flex: none; }
+@keyframes spin { to { transform: rotate(360deg); } }
+.status.error { border-color: var(--high); }
+.status.error .spinner { display: none; }
+
+/* ---------- summary ---------- */
+.summary { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 16px; }
+.summary h2 { font-family: var(--font-display); font-stretch: 85%; font-size: 22px; margin: 0 8px 0 0; }
+.count { font-size: 13.5px; padding: 4px 10px; border-radius: 999px; font-variant-numeric: tabular-nums; font-weight: 600; }
+.count.high { background: var(--high-soft); color: var(--high); }
+.count.medium { background: var(--med-soft); color: var(--med); }
+.count.low { background: var(--low-soft); color: var(--low); }
+.summary .spacer { flex: 1; }
+.btn { text-decoration: none; display: inline-block; border: 1px solid var(--line); background: var(--surface); border-radius: 8px; padding: 7px 12px; cursor: pointer; font-size: 13.5px; font-weight: 500; }
+.btn:hover { border-color: var(--muted); }
+.btn.primary { background: var(--ink); color: var(--paper); border-color: var(--ink); }
+
+/* ---------- result card ---------- */
+.results { display: grid; gap: 18px; padding-bottom: 48px; }
+.card { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.1fr); overflow: hidden; }
+@media (max-width: 820px) { .card { grid-template-columns: minmax(0, 1fr); } }
+.card.high { border-top: 4px solid var(--high); } .card.medium { border-top: 4px solid var(--med); } .card.low { border-top: 4px solid var(--low); }
+.preview { background: var(--sunken); padding: 16px; display: grid; gap: 10px; align-content: start; border-right: 1px solid var(--line); }
+@media (max-width: 820px) { .preview { border-right: 0; border-bottom: 1px solid var(--line); } }
+.preview img { width: 100%; max-height: 420px; object-fit: contain; border-radius: 6px; background: #fff; }
+.seg { display: inline-flex; border: 1px solid var(--line); border-radius: 8px; overflow: hidden; justify-self: start; }
+.seg button { background: var(--surface); border: 0; padding: 6px 12px; font-size: 13px; cursor: pointer; }
+.seg button[aria-pressed="true"] { background: var(--ink); color: var(--paper); }
+.preview .note { font-size: 12.5px; color: var(--muted); margin: 0; }
+
+.details { padding: 20px 22px; display: grid; gap: 16px; align-content: start; min-width: 0; }
+.verdict { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+.badge { font-family: var(--font-display); font-stretch: 85%; font-weight: 700; font-size: 13px; letter-spacing: 0.06em; text-transform: uppercase; padding: 4px 10px; border-radius: 6px; }
+.badge.high { background: var(--high); color: #fff; } .badge.medium { background: var(--med); color: #fff; } .badge.low { background: var(--low); color: #fff; }
+:root[data-theme="dark"] .badge { color: #111; }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .badge { color: #111; } }
+.verdict h3 { margin: 0; font-size: 17px; font-weight: 600; min-width: 0; overflow-wrap: anywhere; }
+.verdict .file { color: var(--muted); font-size: 13px; width: 100%; overflow-wrap: anywhere; }
+.reasons { margin: 0; padding-left: 18px; display: grid; gap: 4px; font-size: 14.5px; }
+.found { width: 100%; border-collapse: collapse; font-size: 14px; }
+.found th { text-align: left; font-size: 12px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted); font-weight: 600; padding: 0 0 6px; border-bottom: 1px solid var(--line); }
+.found td { padding: 7px 0; border-bottom: 1px solid var(--line); vertical-align: top; }
+.found td + td, .found th + th { padding-left: 12px; }
+.found code { font-family: var(--font-mono); font-size: 13px; overflow-wrap: anywhere; }
+.none { font-size: 14px; color: var(--muted); margin: 0; }
+
+.meters { display: grid; gap: 10px; }
+.meter { display: grid; grid-template-columns: 112px minmax(0, 1fr) 48px; align-items: center; gap: 10px; font-size: 13.5px; }
+.meter .track { position: relative; height: 8px; border-radius: 99px; background: var(--sunken); border: 1px solid var(--line); }
+.meter .fill { position: absolute; inset: 0 auto 0 0; border-radius: 99px; background: var(--muted); }
+.meter .fill.on { background: var(--accent); }
+.meter .tick { position: absolute; top: -4px; bottom: -4px; width: 2px; background: var(--ink); border-radius: 1px; }
+.meter .val { text-align: right; font-variant-numeric: tabular-nums; font-family: var(--font-mono); font-size: 13px; }
+.meter .na { color: var(--muted); font-size: 13px; grid-column: 2 / 4; }
+.legend { font-size: 12.5px; color: var(--muted); margin: 0; }
+
+details.text { border-top: 1px solid var(--line); padding-top: 12px; }
+details.text summary { cursor: pointer; font-size: 14px; font-weight: 500; }
+details.text pre { margin: 10px 0 0; padding: 12px; background: var(--sunken); border-radius: 8px; font: 13px/1.6 var(--font-mono); white-space: pre-wrap; overflow-wrap: anywhere; max-height: 240px; overflow: auto; }
+.card-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+.err { color: var(--high); font-size: 14px; }
+
+/* ---------- how it works ---------- */
+.how { border-top: 1px solid var(--line); padding-block: 40px; }
+.how h2 { font-family: var(--font-display); font-stretch: 85%; font-size: 26px; margin: 0 0 6px; }
+.how > p { margin: 0 0 22px; color: var(--muted); max-width: 64ch; }
+.flow { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 12px; }
+@media (max-width: 900px) { .flow { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-width: 480px) { .flow { grid-template-columns: minmax(0, 1fr); } }
+.step { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); padding: 14px; display: grid; gap: 6px; align-content: start; }
+.step h3 { margin: 0; font-size: 15px; font-weight: 600; }
+.step p { margin: 0; font-size: 13.5px; color: var(--muted); }
+.step .tech { font-family: var(--font-mono); font-size: 12px; color: var(--accent); }
+.checks { margin-top: 22px; display: flex; flex-wrap: wrap; gap: 8px; }
+.checks span { font-size: 13px; border: 1px solid var(--line); border-radius: 6px; padding: 4px 9px; background: var(--surface); }
+.checks span b { font-weight: 600; }
+
+footer { border-top: 1px solid var(--line); padding-block: 22px 32px; color: var(--muted); font-size: 13.5px; }
+footer .wrap { display: flex; gap: 12px 24px; flex-wrap: wrap; justify-content: space-between; }
+
+@media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation: none !important; transition: none !important; } }
+</style>
+</head>
+<body>
+<header class="top">
+  <div class="wrap">
+    <a class="brand" href="./" aria-label="Visual Privacy Risk Detector home">
+      <span class="mark" aria-hidden="true"><i></i><i></i><i></i></span>
+      <b>Visual Privacy Risk Detector</b>
+    </a>
+    <span class="mode" id="mode"><span class="dot"></span><span id="modeText">Runs in your browser</span></span>
+    <button class="icon-btn" id="themeBtn" type="button" aria-label="Switch light or dark theme" title="Switch theme">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="12" cy="12" r="4.5"/><path d="M12 2.5v2M12 19.5v2M2.5 12h2M19.5 12h2M5.3 5.3l1.4 1.4M17.3 17.3l1.4 1.4M5.3 18.7l1.4-1.4M17.3 6.7l1.4-1.4"/></svg>
+    </button>
+  </div>
+</header>
+
+<main>
+  <section class="wrap intro">
+    <h1>Find the <span class="redact" title="card number">4111&nbsp;1111</span> before someone else does.</h1>
+    <p>Drop in screenshots or photos of documents. The detector reads the text, checks for card numbers, Aadhaar, PAN, SSN, phone numbers and passwords, scores the whole image, and gives you back a copy with the private parts blacked out.</p>
+  </section>
+
+  <section class="wrap input-row" aria-label="Choose images">
+    <label class="drop" id="drop" for="fileInput">
+      <div>
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 15l5-5 4 4 3-3 6 6"/><circle cx="16" cy="8.5" r="1.5"/></svg>
+        <h2>Drop images here</h2>
+        <p>PNG, JPG, WEBP or BMP · several at once is fine</p>
+        <span class="pick">Choose images</span>
+      </div>
+      <input id="fileInput" type="file" accept="image/*" multiple>
+    </label>
+    <div class="samples">
+      <p class="eyebrow">No image handy? Try a sample</p>
+      <div class="sample-list" id="samples"></div>
+      <small id="privacyNote">Your images are processed on this device and never uploaded. The first check downloads about 13 MB of models once.</small>
+    </div>
+  </section>
+
+  <section class="wrap" aria-live="polite">
+    <div class="status" id="status" hidden>
+      <span class="spinner" aria-hidden="true"></span>
+      <span class="msg" id="statusMsg">Loading…</span>
+      <span class="bar" aria-hidden="true"><i id="statusBar"></i></span>
+    </div>
+    <div class="summary" id="summary" hidden>
+      <h2>Results</h2>
+      <span class="count high" id="cHigh">0 high</span>
+      <span class="count medium" id="cMed">0 medium</span>
+      <span class="count low" id="cLow">0 low</span>
+      <span class="spacer"></span>
+      <button class="btn" type="button" id="dlCsv">Download CSV</button>
+      <button class="btn" type="button" id="dlJson">Download JSON</button>
+      <button class="btn" type="button" id="clearBtn">Clear</button>
+    </div>
+    <div class="results" id="results"></div>
+  </section>
+
+  <section class="wrap how" id="how">
+    <h2>How a decision is made</h2>
+    <p>Three independent checks look at every image. If any one of them fires, the image is marked sensitive, and the result lists which check fired and why.</p>
+    <div class="flow">
+      <div class="step"><h3>Read the text</h3><p>OCR finds every word and its position in the image.</p><span class="tech" id="ocrTech">Tesseract (browser) · PaddleOCR (server)</span></div>
+      <div class="step"><h3>Check for IDs</h3><p>Patterns are matched, then validated with the real checksum or numbering rules.</p><span class="tech">regex + Luhn, Verhoeff</span></div>
+      <div class="step"><h3>Score the context</h3><p>A trained text model spots passwords, medical details and confidential notes with no ID number.</p><span class="tech">TF-IDF + logistic regression</span></div>
+      <div class="step"><h3>Score the picture</h3><p>A fine-tuned CNN rates the whole image, which helps when the text is unreadable.</p><span class="tech">MobileNetV2</span></div>
+      <div class="step"><h3>Decide and redact</h3><p>Any check firing marks the image. Found IDs get solid black boxes, not blur.</p><span class="tech">risk: high · medium · low</span></div>
+    </div>
+    <div class="checks" aria-label="What the ID check validates">
+      <span><b>Card numbers</b> Luhn checksum + network prefix</span>
+      <span><b>Aadhaar</b> Verhoeff checksum or “Aadhaar” label</span>
+      <span><b>PAN</b> 4th letter = holder type</span>
+      <span><b>SSN</b> no 000, 666 or 9xx area</span>
+      <span><b>Phone</b> Indian mobile 6–9 or US numbering</span>
+      <span><b>PIN / OTP / CVV</b> only when labelled</span>
+      <span><b>Passwords</b> “password: …” with a value</span>
+      <span><b>Email</b></span>
+    </div>
+  </section>
+</main>
+
+<footer>
+  <div class="wrap">
+    <span>Built by Phani Srikanth Samayam · <a href="https://github.com/phanisrikanth9/sensitive_image_detection">Source on GitHub</a></span>
+    <span>The text model was trained on synthetic data; treat results as a safety check, not a guarantee.</span>
+  </div>
+</footer>
+
+<script src="web/engine.js"></script>
+<script src="web/app.js"></script>
+</body>
+</html>

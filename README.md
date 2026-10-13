@@ -1,5 +1,7 @@
 # Visual Privacy Risk Detector
 
+**Live demo:** https://phanisrikanth9.github.io/sensitive_image_detection/ (runs entirely in your browser; images are never uploaded)
+
 Upload images (screenshots, photos of documents, ID cards, chats) and the app tells you
 whether they expose sensitive information, **why**, and gives back a copy with the
 personal data blacked out.
@@ -34,6 +36,8 @@ flowchart LR
 
 | File | Purpose |
 |---|---|
+| `index.html`, `web/` | The interface. On GitHub Pages it runs everything in the browser (Tesseract.js OCR, `web/engine.js` port of the rules + text model, TensorFlow.js image model). Served by `app.py` it sends images to the Python pipeline instead |
+| `export_web_models.py` | Exports the trained models to `web/` for the browser version (rerun after retraining) |
 | `app.py` | Flask web app (`/`, `/upload`, `/health`) - formerly `trail.py` |
 | `analyzer.py` | The pipeline: image model, OCR, PII rules, text model, decision, redaction |
 | `detectors.py` | Regex patterns, checksum validators, masking |
@@ -58,6 +62,10 @@ python generate_dataset.py            # optional: the dataset is already committ
 python train_text_classifier.py       # optional: the trained model is already committed
 python app.py                         # open http://127.0.0.1:5000
 ```
+
+After retraining, run `python export_web_models.py` so the browser version uses the new models.
+The JavaScript port is checked against Python: identical findings on 3,043 test texts and
+image-model scores equal to 6 decimal places.
 
 The app still starts if a component is missing (no TensorFlow, no OCR, no model file);
 `/health` shows what is loaded.

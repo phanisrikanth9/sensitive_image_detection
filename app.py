@@ -7,14 +7,15 @@ disk, and the browser only receives OCR text with PII already masked.
 """
 import os
 
-from flask import Flask, jsonify, render_template, request
+from flask import Flask, jsonify, request, send_from_directory
 from PIL import UnidentifiedImageError
 from werkzeug.utils import secure_filename
 
 from analyzer import PrivacyAnalyzer
-from config import Config
+from config import BASE_DIR, Config
 
-app = Flask(__name__)
+# The same index.html is used for GitHub Pages (in-browser mode) and here (server mode)
+app = Flask(__name__, static_folder="web", static_url_path="/web")
 app.config["MAX_CONTENT_LENGTH"] = Config.MAX_UPLOAD_MB * 1024 * 1024  # reject huge uploads
 
 analyzer = PrivacyAnalyzer()
@@ -28,7 +29,7 @@ def allowed(filename):
 
 @app.route("/")
 def home():
-    return render_template("index.html")
+    return send_from_directory(BASE_DIR, "index.html")
 
 
 @app.route("/health")

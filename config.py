@@ -1,31 +1,44 @@
-# config.py
+"""Central configuration for the Visual Privacy Risk Detector.
+
+Every path is relative to this file, so the project runs the same on any machine
+(the old version hard-coded C:\\Users\\SRIKANTH\\Desktop\\...). Paths can be
+overridden with environment variables.
+"""
+import os
+
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+
+
+def _path(env_var, default):
+    return os.environ.get(env_var, os.path.join(BASE_DIR, default))
+
+
 class Config:
-    # Dataset parameters
-    NUM_SYNTHETIC_SAMPLES = 500
-    NUM_SENSITIVE_SAMPLES = 1000
-    NUM_NON_SENSITIVE_SAMPLES = 1000
-    SENSITIVE_RATIO = 0.5  # 50-50 balance
-    
-    # File paths
-    SYNTHETIC_FILES = [
-        'synthetic_dataset1.csv',
-        'synthetic_dataset2.csv',
-        'synthetic_dataset3.csv'
-    ]
-    SENSITIVE_FILE = 'sensitive_dataset.csv'
-    NON_SENSITIVE_FILE = 'non_sensitive_dataset.csv'
-    
-    # Model parameters
-    TEST_SIZE = 0.25
+    # ---------------- Models ----------------
+    IMAGE_MODEL_PATH = _path("IMAGE_MODEL_PATH", "models/sensitive_model_final.keras")
+    TEXT_MODEL_PATH = _path("TEXT_MODEL_PATH", "models/text_classifier.joblib")
+
+    # Image classifier (MobileNetV2 transfer learning)
+    IMAGE_SIZE = (224, 224)
+    IMAGE_THRESHOLD = float(os.environ.get("IMAGE_THRESHOLD", 0.5))
+
+    # ---------------- Text dataset ----------------
+    TEXT_DATASET_PATH = _path("TEXT_DATASET_PATH", "data/text_dataset.csv")
+    SAMPLES_PER_TEMPLATE = 40     # how many filled-in examples per sentence template
+    OCR_NOISE_PROB = 0.3          # share of samples that get simulated OCR errors
     RANDOM_STATE = 42
-    MODEL_SAVE_PATH = 'text_classification_pipeline.pkl'
-    
-    # Pattern configurations
-    SENSITIVE_PATTERNS = {
-        'credit_card': r'\b(?:\d[ -]*?){13,16}\b',  # Matches credit card numbers with/without spaces/dashes
-        'ssn': r'\b\d{3}[ -]?\d{2}[ -]?\d{4}\b',    # Matches SSNs with/without spaces/dashes
-        'phone': r'\b\+?\d[ -]?(?:\d[ -]?){9,14}\b', # Matches phone numbers with/without spaces/
-        'aadhaar': r'\b[2-9]\d{3}[\s-]?\d{4}[\s-]?\d{4}\b',  # UIDAI format
-        'atm_pin': r'\b\d{4}\b',
-        'pan': r'\b[A-Z]{5}\d{4}[A-Z]\b'
-    }
+
+    # ---------------- Text model training ----------------
+    # Split is done by *template*, so test sentences use wordings the model never saw.
+    TEST_SIZE = 0.2
+    VAL_SIZE = 0.2
+    # Missing sensitive content is worse than a false alarm, so the decision
+    # threshold is the highest one that still keeps this recall on validation data.
+    TARGET_RECALL = 0.95
+    METRICS_PATH = _path("METRICS_PATH", "models/text_metrics.json")
+
+    # ---------------- Web app ----------------
+    MAX_UPLOAD_MB = 16
+    ALLOWED_EXTENSIONS = {"png", "jpg", "jpeg", "bmp", "webp", "tif", "tiff"}
+    # Return OCR text with PII masked (never the raw values) to the browser.
+    RETURN_MASKED_TEXT = True

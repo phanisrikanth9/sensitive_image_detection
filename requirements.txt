@@ -1,0 +1,18 @@
+# Core (text pipeline + web app)
+flask>=3.0
+numpy>=1.26
+pandas>=2.0
+scikit-learn>=1.4
+joblib>=1.3
+pillow>=10.0
+
+# Image classifier (MobileNetV2). Model was saved with Keras 3.6.
+tensorflow>=2.17
+
+# OCR. PaddleOCR 2.x and 3.x are both supported by analyzer.py
+paddlepaddle>=2.6
+paddleocr>=2.7
+opencv-python-headless>=4.8
+
+# Tests
+pytest>=8.0

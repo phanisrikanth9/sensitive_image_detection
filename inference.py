@@ -1,90 +1,64 @@
-import joblib
-import re
-from pattern_detector import PatternDetector
-from config import Config
+"""Command-line checker for text or images.
 
-class SensitivityChecker:
-    def __init__(self, model_path):
-        # Load the model and its components
-        model_data = joblib.load(model_path)
-        self.pipeline = model_data['model']
-        self.threshold = model_data.get('threshold', 0.5)  # Use default threshold if not found
-        self.patterns = Config.SENSITIVE_PATTERNS
+    python inference.py --text "My card is 4111 1111 1111 1111"
+    python inference.py --image path/to/photo.jpg
+    python inference.py            # runs the built-in text examples
+"""
+import argparse
+import json
 
-    def validate_ssn(self, ssn):
-        """Validate SSN against official rules"""
-        ssn = re.sub(r'[ -]', '', ssn)  # Remove separators
-        if len(ssn) != 9: return False
-        if ssn.startswith(('000', '666')) or ssn[0] == '9':
-            return False
-        return True
+from analyzer import PrivacyAnalyzer
 
-    def validate_phone(self, phone):
-        """Validate Indian phone numbers"""
-        digits = re.sub(r'[^0-9]', '', phone)
-        return len(digits) == 12 and digits.startswith(('6', '7', '8', '9'))
+EXAMPLES = [
+    ("My credit card is 4111-1111-1111-1111", True),   # Luhn-valid Visa test number
+    ("Meeting at 3 PM in room 205", False),
+    ("Software version 2.3.45", False),
+    ("SSN: 123-45-6789", True),                         # valid SSN format/rules
+    ("Phone: +91-1234567890", False),                   # invalid number; ML still flags the "Phone:" label (known false alarm)
+    ("Call me on +91 98765 43210", True),
+    ("Thank you for your application! Browse More Jobs", False),
+    ("Happy New Year 2025", False),                     # old system: flagged as ATM PIN
+    ("397788000234", False),                            # bare 12 digits, no Aadhaar label
+    ("Aadhaar: 2345 6789 0123", True),                  # labelled Aadhaar
+    ("my gmail password is sunshine", True),            # no ID number: caught by ML model
+    ("Patient diagnosed with tuberculosis", True),
+]
 
-    def validate_credit_card(self, card):
-        """Validate credit card using Luhn algorithm"""
-        card = re.sub(r'[ -]', '', card)
-        if len(card) != 16 or not card.isdigit():
-            return False
-        # Luhn algorithm
-        total = 0
-        for i, digit in enumerate(reversed(card)):
-            num = int(digit)
-            if i % 2 == 1:
-                num *= 2
-                if num > 9:
-                    num = num - 9
-            total += num
-        return total % 10 == 0
 
-    def contains_sensitive_pattern(self, text):
-        """Enhanced validation for all patterns"""
-        for name, pattern in self.patterns.items():
-            matches = re.finditer(pattern, text)
-            for match in matches:
-                value = match.group()
-                if name == 'ssn' and not self.validate_ssn(value):
-                    continue
-                if name == 'phone' and not self.validate_phone(value):
-                    continue
-                if name == 'credit_card' and not self.validate_credit_card(value):
-                    continue
-                return True
-        return False
+def check_text(analyzer, text):
+    findings, score = analyzer.analyze_text(text)
+    thr = analyzer.text_model.threshold if analyzer.text_model else None
+    sensitive = bool(findings) or (score is not None and score >= thr)
+    return sensitive, findings, score
 
-    def predict(self, text):
-        """Predict whether the text is sensitive."""
-        # Rule-based check first
-        if self.contains_sensitive_pattern(text):
-            return 1
-        
-        # Model prediction with probability validation
-        try:
-            proba = self.pipeline.predict_proba([text])[0][1]
-            return 1 if proba >= self.threshold else 0
-        except Exception as e:
-            print(f"Prediction error: {e}")
-            return 0  # Fallback to non-sensitive
 
-if __name__ == '__main__':
-    checker = SensitivityChecker(Config.MODEL_SAVE_PATH)
-    
-    test_cases = [
-        "My credit card is 4111-1111-1111-1111",  # Valid Visa (Sensitive)
-        "Meeting at 3 PM in room 205",  # Non-sensitive
-        "Software version 2.3.45",  # Safe number (Non-sensitive)
-        "SSN: 123-45-6789",  # Invalid SSN (Non-sensitive)
-        "Phone: +91-1234567890",  # Invalid phone (Non-sensitive)
-        "Thank you for your application, Phani Srikanth! We look forward to reviewing it! Browse More Jobs",  # Non-sensitive
-        "Lets meet at 8pm",  # Non-sensitive
-        "Yoo 123 Yoo",  # Non-sensitive
-        "397788000234",  # Random numbers (Non-sensitive)
-        "Aadhaar: 2345 6789 0123"  # Valid Aadhaar (Sensitive)
-    ]
-    
-    for text in test_cases:
-        prediction = checker.predict(text)
-        print(f"Text: {text}\nPrediction: {'Sensitive' if prediction else 'Non-Sensitive'}\n")
+def main():
+    ap = argparse.ArgumentParser()
+    ap.add_argument("--text")
+    ap.add_argument("--image")
+    args = ap.parse_args()
+
+    if args.image:
+        analyzer = PrivacyAnalyzer()
+        with open(args.image, "rb") as f:
+            res = analyzer.analyze_image(f.read(), args.image, redact_output=False)
+        print(json.dumps(res, indent=2))
+        return
+
+    analyzer = PrivacyAnalyzer(load_image_model=False, load_ocr=False)
+    for w in analyzer.warnings:
+        print("warning:", w)
+    cases = [(args.text, None)] if args.text else EXAMPLES
+    correct = 0
+    for text, expected in cases:
+        sensitive, findings, score = check_text(analyzer, text)
+        why = ", ".join(f"{f.type} {f.masked}" for f in findings) or (f"ML score {score:.2f}" if score is not None else "-")
+        mark = "" if expected is None else ("  OK" if sensitive == expected else "  WRONG")
+        correct += expected is not None and sensitive == expected
+        print(f"{'SENSITIVE ' if sensitive else 'safe      '} | {why:<32} | {text}{mark}")
+    if not args.text:
+        print(f"\n{correct}/{len(cases)} examples correct")
+
+
+if __name__ == "__main__":
+    main()

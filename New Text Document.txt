@@ -1,6 +1,0 @@
-flask
-tensorflow
-keras
-pillow
-pytesseract
-opencv-python

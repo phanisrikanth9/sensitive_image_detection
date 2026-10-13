@@ -1,0 +1,33 @@
+{
+  "rows": 3024,
+  "templates": 80,
+  "split_rows": {
+    "train": 1787,
+    "val": 620,
+    "test": 617
+  },
+  "threshold": 0.23,
+  "test": {
+    "precision": 1.0,
+    "recall": 0.99,
+    "f1": 0.995,
+    "roc_auc": 0.9999
+  },
+  "test_confusion_matrix": [
+    [
+      417,
+      0
+    ],
+    [
+      2,
+      198
+    ]
+  ],
+  "group_kfold_cv": {
+    "precision": "0.977 +/- 0.047",
+    "recall": "0.947 +/- 0.069",
+    "f1": "0.959 +/- 0.043",
+    "roc_auc": "0.998 +/- 0.002"
+  },
+  "hard_negative_false_positives": "0/14"
+}
